@@ -6,7 +6,6 @@ warnings.filterwarnings("ignore")
 
 from PyQt5 import QtGui,QtCore
 from PyQt5.QtWidgets import *
-import DecesionTree
 import MLP,make_model
 
 class mainWindow(QMainWindow):
@@ -16,9 +15,10 @@ class mainWindow(QMainWindow):
         self.title = "MLP application"
         self.top = 300
         self.left = 600
-        self.width = 400
-        self.height = 300
+        self.width = 410
+        self.height = 600
         self.isModelReady = False
+        self.result_label = QLabel(self)
         self.iconName = "C:/Users/user/Documents/pythonprog/ML/MLGUI/assets/python.png"
         self.initUI()
         
@@ -37,10 +37,14 @@ class mainWindow(QMainWindow):
         self.drawEpochs()
         self.drawOptimizer()
         self.drawNoh()
-           
-        self.ModelButton = self.createButton('Make Model',self.call_make_model,270, 170, 120, 60)
+        self.drawFeatureScaling()
+        self.drawPCAOption()
+        self.drawPCAComponents()
+        self.ModelButton = self.createButton('Make Model',self.call_make_model,280, 170, 120, 60)
 
-        self.RunButton = self.createButton('Run',self.runSVM,330, 250, 60, 30)
+        self.RunButton = self.createButton('Run',self.runMLP,340, 370, 60, 30)
+
+        self.result_label.setGeometry(10, 380, 400, 220)  # 设置结果显示的位置
 
         self.show()
         
@@ -50,18 +54,20 @@ class mainWindow(QMainWindow):
         self.TypeOfPrediction = 'Classification'
         self.epochs = 5
         self.optimizer = 'adam'
-        self.hiddenLayers = 3        
-        
+        self.hiddenLayers = 1
+        self.featureScaling = "None"
+        self.applyPCA = False
+        self.pcaComponents = 2
     
     def drawBrowser(self):
         self.centralwidget = QWidget(self) 
         self.csv_label = QLabel(self.centralwidget) 
-        self.csv_label.setGeometry(QtCore.QRect(10, 10, 80, 30))
+        self.csv_label.setGeometry(QtCore.QRect(10, 10, 80, 20))
         self.csv_label.setText("csv file: ")
         
         self.csv_lineEdit = QLineEdit(self)
-        self.csv_lineEdit.setGeometry(QtCore.QRect(90,10,300,30))
-        self.svmButton = self.createButton("Browse",self.getFileName,330, 50,60, 30)
+        self.csv_lineEdit.setGeometry(QtCore.QRect(90,10,310,30))
+        self.svmButton = self.createButton("Browse",self.getFileName,340, 50,60, 30)
         
     
         
@@ -83,12 +89,12 @@ class mainWindow(QMainWindow):
 
         self.prediction_group = QButtonGroup(self)
         self.prediction_button1 = QRadioButton('Classification',self)
-        self.prediction_button1.setGeometry(QtCore.QRect(160,135,100,20))
+        self.prediction_button1.setGeometry(QtCore.QRect(160,135,110,20))
         self.prediction_group.addButton(self.prediction_button1)
         self.prediction_button1.setChecked(True)
 
         self.prediction_button2 = QRadioButton('Regression',self)
-        self.prediction_button2.setGeometry(QtCore.QRect(270,135,85,20))
+        self.prediction_button2.setGeometry(QtCore.QRect(280,135,85,20))
         self.prediction_group.addButton(self.prediction_button2)
 
         
@@ -122,6 +128,43 @@ class mainWindow(QMainWindow):
         self.noh_lineEdit.setGeometry(QtCore.QRect(160,250,40,30))
         self.noh_lineEdit.setText(str(self.splitSize))
 
+    def drawFeatureScaling(self):
+        self.scaling_label = QLabel("Feature Scaling: ", self)
+        self.scaling_label.setStyleSheet('background-color: yellow')
+        self.scaling_label.setGeometry(QtCore.QRect(40, 290, 110, 30))
+
+        self.scaling_cb = QComboBox(self)
+        self.scaling_cb.setGeometry(QtCore.QRect(160, 290, 120, 30))
+        self.scaling_cb.addItems(["None", "StandardScaler", "MinMaxScaler"])
+        self.scaling_cb.currentIndexChanged.connect(self.scalingChange)
+
+    def drawPCAOption(self):
+        self.pca_label = QLabel("Apply PCA: ", self)
+        self.pca_label.setStyleSheet('background-color: yellow')
+        self.pca_label.setGeometry(QtCore.QRect(40, 330, 110, 30))
+
+        self.pca_cb = QCheckBox(self)
+        self.pca_cb.setGeometry(QtCore.QRect(160, 330, 20, 30))
+        self.pca_cb.stateChanged.connect(self.pcaChange)
+
+    def drawPCAComponents(self):
+        self.pca_components_label = QLabel("PCA Components: ", self)
+        self.pca_components_label.setStyleSheet('background-color: yellow')
+        self.pca_components_label.setGeometry(QtCore.QRect(40, 370, 110, 30))
+        self.pca_components_label.setVisible(False)  # Initially hidden
+
+        self.pca_components_lineEdit = QLineEdit(self)
+        self.pca_components_lineEdit.setGeometry(QtCore.QRect(160, 370, 50, 30))
+        self.pca_components_lineEdit.setText(str(self.pcaComponents))
+        self.pca_components_lineEdit.setVisible(False)
+
+    def scalingChange(self):
+        self.featureScaling = self.scaling_cb.currentText()
+
+    def pcaChange(self):
+        self.applyPCA = self.pca_cb.isChecked()
+        self.pca_components_label.setVisible(self.applyPCA)
+        self.pca_components_lineEdit.setVisible(self.applyPCA)
 
     def call_make_model(self):
 
@@ -141,40 +184,36 @@ class mainWindow(QMainWindow):
         fileName, _ = QFileDialog.getOpenFileName(self, 'Single File', 'C:/Users/user/Documents/pythonprog/ML/MLGUI/scripts' , '*.csv')
         self.csv_lineEdit.setText(fileName)
         self.fileName = self.csv_lineEdit.text()
-        #print(self.fileName)
 
-    def runSVM(self):
+    def runMLP(self):
 
         if self.isModelReady is False:
             QMessageBox.about(self,'Message', 'The model is not made yet!\n Please make the model!')
             return
 
-        # print("--------TRAINING--------")
         if self.fileName != "":
             self.splitSize = int(self.split_lineEdit.text())
             self.fileName = self.csv_lineEdit.text()
-            self.epochs = int(self.epochs_lineEdit.text())       
+            self.epochs = int(self.epochs_lineEdit.text())
+            self.featureScaling = self.scaling_cb.currentText()
+            self.applyPCA = self.pca_cb.isChecked()
+            self.pcaComponents = int(self.pca_components_lineEdit.text())
 
             if self.splitSize <=40:
                 # print("Test percentage: ",self.splitSize)
-                self.results = MLP.run(file_name=self.fileName,model=self.m.temp_model,testing_percentage=self.splitSize)
+                self.results = MLP.run(file_name=self.fileName,model=self.m.temp_model,testing_percentage=self.splitSize,
+                                       optimizer=self.optimizer,epochs=self.epochs,feature_scaling=self.featureScaling, apply_pca=self.applyPCA, pca_components=self.pcaComponents)
             else:
                 pass# print("cannot train on such small dataset")
         else: 
-            pass# print("incorrect file name!")            
-        # print("--------SUCCESSFUL--------")
-        
-
-        QMessageBox.about(self,"Results:", self.results)
-        
-
+            pass# print("incorrect file name!")
+        self.result_label.setText("Result: " + str(self.results))
     def createButton(self,text,fun,x,y,l,w):
         pushButton = QPushButton(text,self) 
         pushButton.setGeometry(QtCore.QRect(x,y,l,w))
         pushButton.clicked.connect(fun)
         return pushButton
-        
-        
+
 def Main():
     m = mainWindow()
     m.show()

@@ -1,11 +1,6 @@
-import warnings
-# ignore all future warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
-warnings.filterwarnings("ignore")
-
 import numpy as np
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -13,7 +8,8 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
 
-def run(file_name, testing_percentage, crit, split, feature_scaling, apply_pca, pca_components):
+
+def run(file_name, testing_percentage, regularization, solver, feature_scaling, apply_pca, pca_components):
     df = pd.read_csv(file_name)
     ts = (testing_percentage) / 100
 
@@ -40,7 +36,7 @@ def run(file_name, testing_percentage, crit, split, feature_scaling, apply_pca, 
         X_train = pca.fit_transform(X_train)
         X_test = pca.transform(X_test)
 
-    clf = DecisionTreeClassifier(criterion=crit, splitter=split)
+    clf = LogisticRegression(C=regularization, solver=solver)
     clf.fit(X_train, Y_train)
 
     Y_predict = clf.predict(X_test)
@@ -54,9 +50,10 @@ def run(file_name, testing_percentage, crit, split, feature_scaling, apply_pca, 
 
     sns.heatmap(confusion, annot=True, fmt='d')
     plt.show()
+
     results = classification_report(Y_test, Y_predict, target_names=[str(cls) for cls in unique_classes])
 
     return results
 
 # Example usage:
-# print(run('C:/Users/user/Documents/pythonprog/ML/MLGUI/scripts/bill_authentication.csv', 20, 'gini', 'best', 'StandardScaler', True, 2))
+# print(run('C:/Users/user/Documents/pythonprog/ML/MLGUI/scripts/bill_authentication.csv', 20, 1.0, 'lbfgs', 'StandardScaler', True, 2))
